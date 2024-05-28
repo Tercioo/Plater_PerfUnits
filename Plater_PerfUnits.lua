@@ -115,16 +115,39 @@ function platerPerfUnits.CreatePluginWidgets()
 
     --create a rounded block in the top of the frame informing what a performance unit is
     local roundedInformationFrame = CreateFrame("frame", "$parentRoundedInfoFrame", pluginFrame)
-    roundedInformationFrame:SetSize(width - 40, 40)
+    roundedInformationFrame:SetSize(width - 40, 32)
     roundedInformationFrame:SetPoint("top", pluginFrame, "top", 0, paddingFromTop)
     --add rounded corners to the frame
     detailsFramework:AddRoundedCornersToFrame(roundedInformationFrame, roundedFramePreset)
-
     --create a label to show te information text
     local bShouldRegister = true
     local locTable = detailsFramework.Language.CreateLocTable(addonId, "PERF_UNIT_WHATISIT", bShouldRegister)
     local informationLabel = detailsFramework:CreateLabel(roundedInformationFrame, locTable, 12, "orange")
     informationLabel:SetPoint("center", roundedInformationFrame, "center", 0, 0)
 
+    --create a rounded text entry for npcId input
+    local entryLabel = detailsFramework:CreateLabel(pluginFrame, detailsFramework.Language.CreateLocTable(addonId, "ENTER_NPCID", bShouldRegister))
+    entryLabel:SetPoint("topleft", roundedInformationFrame, "bottomleft", 0, -10)
+    local npcIDTextEntry = detailsFramework:CreateTextEntry(pluginFrame, function()end, 174, 32, "")
+    npcIDTextEntry:SetPoint("topleft", entryLabel, "bottomleft", 0, -2)
+    npcIDTextEntry:SetTextInsets(5, 5, 0, 0)
+    npcIDTextEntry.align = "left"
+    npcIDTextEntry:SetBackdropColor(0, 0, 0, 0)
+    npcIDTextEntry:SetBackdropBorderColor(0, 0, 0, 0)
+    npcIDTextEntry:SetScript("OnEnter", nil)
+    npcIDTextEntry:SetScript("OnLeave", nil)
+    local file, size, flags = npcIDTextEntry:GetFont()
+    npcIDTextEntry:SetFont(file, 12, flags)
+    detailsFramework:AddRoundedCornersToFrame(npcIDTextEntry.widget, roundedFramePreset)
+
+    --function to be called when the user click on the add button
+    local addNpcIDCallback = function()
+        print("you clicked the button!")
+    end
+
+    --create a button to add the npcId to the list
+    local addAuraButton = detailsFramework:CreateButton(pluginFrame, addNpcIDCallback, 60, 32, "Add")
+    addAuraButton:SetPoint("left", npcIDTextEntry, "right", 5, 0)
+    detailsFramework:AddRoundedCornersToFrame(addAuraButton.widget, roundedFramePreset)
 
 end
