@@ -10,6 +10,12 @@
 ---@class performanceunits_settings
 
 ---@class performanceunits_frame : frame
+---@field GridScrollBox df_gridscrollbox
+
+---@class performanceunits_grid_button : df_button
+---@field IconTexture df_image
+---@field NpcNameLabel df_label
+---@field NpcIdLabel df_label
 
 ---@class platerperfunits : table
 ---@field createdFrames boolean
@@ -105,6 +111,8 @@ function platerPerfUnits.CreatePluginWidgets()
     if (not platerPerfUnits.createdFrames) then
         platerPerfUnits.createdFrames = true
     else
+        local pluginFrame = platerPerfUnits:GetPluginFrame()
+        pluginFrame.GridScrollBox:RefreshMe()
         return
     end
 
@@ -150,4 +158,99 @@ function platerPerfUnits.CreatePluginWidgets()
     addAuraButton:SetPoint("left", npcIDTextEntry, "right", 5, 0)
     detailsFramework:AddRoundedCornersToFrame(addAuraButton.widget, roundedFramePreset)
 
+    --create the scroll to display the npcs added into the performance list
+
+    ---@type df_button[]
+    local allGridFrameButtons = {}
+
+    --grid scroll box to display the npcs already in the list
+    ---@type df_gridscrollbox_options
+    local gridScrollBoxOptions = {
+        width = width - 49,
+        height = height - 116,
+        line_amount = 13, --amount of horizontal lines
+        line_height = 32,
+        columns_per_line = 5,
+        vertical_padding = 5,
+    }
+
+    ---when the scroll is refreshing the line, the line will call this function for each selection button on it
+    ---@param dfButton performanceunits_grid_button
+    ---@param npcId number
+    local refreshNpcButtonInTheGrid = function(dfButton, npcId)
+        dfButton.NpcIdLabel.text = tostring(npcId)
+        dfButton:SetIcon([[Interface\ICONS\INV_MouseHearthstone]])
+
+        local npcData = Plater.db.profile.npc_cache[npcId]
+        if (npcData) then
+            dfButton.NpcNameLabel.text = npcData[1] --[1] npc name [2] location name [3] language
+        else
+            dfButton.NpcNameLabel.text = _G.UNKNOWN
+        end
+
+        print("npcData", npcData, npcData and npcData[1])
+    end
+
+    --each line has more than 1 selection button, this function creates these buttons on each line
+    local createNpcButton = function(line, lineIndex, columnIndex)
+        local buttonWidth = gridScrollBoxOptions.width / gridScrollBoxOptions.columns_per_line - 5
+        local buttonHeight = gridScrollBoxOptions.line_height
+        if (not buttonHeight) then
+            buttonHeight = 30
+        end
+
+        --create the button
+        ---@type performanceunits_grid_button
+        local button = detailsFramework:CreateButton(line, function()end, buttonWidth, buttonHeight)
+        detailsFramework:AddRoundedCornersToFrame(button.widget, roundedFramePreset)
+        button.textsize = 11
+
+        --create an icon
+        local iconTexture = detailsFramework:CreateTexture(button, [[Interface\ICONS\INV_MouseHearthstone]], buttonHeight - 4, buttonHeight - 4, "artwork")
+        detailsFramework:SetMask(iconTexture, [[Interface\AddOns\Plater_PerfUnits\assets\textures\common-iconmask.png]])
+        iconTexture:SetPoint("left", button, "left", 2, 0)
+
+        --create a label for the npc name
+        local npcNameLabel = detailsFramework:CreateLabel(button, "", "SMALL_SILVER")
+        npcNameLabel:SetPoint("left", iconTexture, "right", 2, 4)
+
+        --create a label for the npcId
+        local npcIdLabel = detailsFramework:CreateLabel(button, "", "SMALL_SILVER")
+        npcIdLabel:SetPoint("left", iconTexture, "right", 2, -4)
+
+        --create a highlight texture for the button
+        button:CreateTexture("$parentHighlight", "highlight"):SetColorTexture(1, 1, 1, 0.15)
+
+        button.IconTexture = iconTexture
+        button.NpcNameLabel = npcNameLabel
+        button.NpcIdLabel = npcIdLabel
+
+        --add the button into a list of buttons created
+        allGridFrameButtons[#allGridFrameButtons+1] = button
+        return button
+    end
+
+    local tbdData = {}
+    local gridScrollBox = detailsFramework:CreateGridScrollBox(pluginFrame, "$parentNpcsAdded", refreshNpcButtonInTheGrid, tbdData, createNpcButton, gridScrollBoxOptions)
+    pluginFrame.GridScrollBox = gridScrollBox
+    gridScrollBox:SetPoint("topleft", npcIDTextEntry.widget, "bottomleft", 0, -10)
+    gridScrollBox:SetBackdrop({})
+    gridScrollBox:SetBackdropColor(0, 0, 0, 0)
+    gridScrollBox:SetBackdropBorderColor(0, 0, 0, 0)
+    gridScrollBox.__background:Hide()
+    gridScrollBox:Show()
+
+    function gridScrollBox:RefreshMe()
+        --transform the hash table into an array
+        local listOfNpcs = {}
+        for npcId in pairs(Plater.PerformanceUnits) do
+            listOfNpcs[#listOfNpcs+1] = npcId
+        end
+
+        gridScrollBox:SetData(listOfNpcs)
+        gridScrollBox:Refresh()
+    end
+
+    --do the first refresh
+    gridScrollBox:RefreshMe()
 end
