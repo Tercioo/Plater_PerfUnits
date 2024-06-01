@@ -45,6 +45,22 @@ local roundedFramePreset = {
     roundness = 8,
 }
 
+--unique name of the plugin, this will tell Plater if the plugin is already installed
+local uniqueName = "PERFORMANCE_UNITS_PLUGIN"
+--localized name of the plugin, this is shown in the plugin list on Plater
+local pluginName = "Performance Units"
+--create a frame, this frame will be attached to the plugins tab on Plater, all plugins for Plater require a frame object in the .Frame member
+local frameName = "Plater_PerfUnitsFrame"
+
+local roundedInformatioFrameSettings = {
+    centerOffset = -40,
+    height = 32,
+    paddingFromTop = -10,
+}
+
+local removeButtonSize = 20
+local highlightTextureAlpha = 0.1
+local buttonHighlightTexture = [[Interface\AddOns\Plater_PerfUnits\assets\textures\button-highlight.png]]
 
 ---@type performanceunits_settings
 local defaultSettings = {}
@@ -64,14 +80,6 @@ function platerPerfUnits.GetPluginFrame(self)
 end
 
 function platerPerfUnits.OnInit(self, profile) --fired at PLAYER_LOGIN
-    --unique name of the plugin, this will tell Plater if the plugin is already installed
-    local uniqueName = "PERFORMANCE_UNITS_PLUGIN"
-
-    --localized name of the plugin, this is shown in the plugin list on Plater
-    local pluginName = "Performance Units"
-
-    --create a frame, this frame will be attached to the plugins tab on Plater, all plugins for Plater require a frame object in the .Frame member
-    local frameName = "Plater_PerfUnitsFrame"
     local frameParent = UIParent
     ---@type performanceunits_frame
     local frame = CreateFrame("frame", frameName)
@@ -119,14 +127,12 @@ function platerPerfUnits.CreatePluginWidgets()
     end
 
     local pluginFrame = platerPerfUnits:GetPluginFrame()
-
-    local paddingFromTop = -10
     local width, height = pluginFrame:GetSize()
 
     --create a rounded block in the top of the frame informing what a performance unit is
     local roundedInformationFrame = CreateFrame("frame", "$parentRoundedInfoFrame", pluginFrame)
-    roundedInformationFrame:SetSize(width - 40, 32)
-    roundedInformationFrame:SetPoint("top", pluginFrame, "top", 0, paddingFromTop)
+    roundedInformationFrame:SetSize(width + roundedInformatioFrameSettings.centerOffset, roundedInformatioFrameSettings.height)
+    roundedInformationFrame:SetPoint("top", pluginFrame, "top", 0, roundedInformatioFrameSettings.paddingFromTop)
     --add rounded corners to the frame
     detailsFramework:AddRoundedCornersToFrame(roundedInformationFrame, roundedFramePreset)
     --create a label to show te information text
@@ -237,13 +243,13 @@ function platerPerfUnits.CreatePluginWidgets()
         npcIdLabel:SetPoint("left", iconTexture, "right", 5, -5)
 
         --create a close button to represent the remove button
-        local closeButton = detailsFramework:CreateButton(button, removeNpcIDCallback, 20, 20, "X")
+        local closeButton = detailsFramework:CreateButton(button, removeNpcIDCallback, removeButtonSize, removeButtonSize, "X")
         closeButton:SetPoint("right", button, "right", 0, 0)
 
         --create a highlight texture for the button
         local highlightTexture = button:CreateTexture("$parentHighlight", "highlight")
-        highlightTexture:SetAlpha(0.1)
-        highlightTexture:SetTexture([[Interface\AddOns\Plater_PerfUnits\assets\textures\button-highlight.png]])
+        highlightTexture:SetAlpha(highlightTextureAlpha)
+        highlightTexture:SetTexture(buttonHighlightTexture)
         highlightTexture:SetAllPoints()
 
         button.IconTexture = iconTexture
