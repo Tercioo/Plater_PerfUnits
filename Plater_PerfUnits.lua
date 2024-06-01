@@ -273,11 +273,47 @@ function platerPerfUnits.CreatePluginWidgets()
     gridScrollBox.__background:Hide()
     gridScrollBox:Show()
 
+    --create a search bar to filter the auras
+    local searchText = ""
+
+    local onSearchTextChangedCallback = function(self, ...)
+        local text = self:GetText()
+        searchText = string.lower(text)
+        gridScrollBox:RefreshMe()
+    end
+
+    local searchBox = detailsFramework:CreateTextEntry(pluginFrame, onSearchTextChangedCallback, 220, 26)
+    searchBox:SetPoint("topright", roundedInformationFrame, "bottomright", 0, -35)
+    searchBox:SetAsSearchBox()
+    searchBox:SetTextInsets(25, 5, 0, 0)
+    searchBox:SetBackdrop(nil)
+    searchBox:SetHook("OnTextChanged", onSearchTextChangedCallback)
+    local file, size, flags = searchBox:GetFont()
+    searchBox:SetFont(file, 12, flags)
+    searchBox.ClearSearchButton:SetAlpha(0)
+
+    searchBox.BottomLineTexture = searchBox:CreateTexture(nil, "border")
+    searchBox.BottomLineTexture:SetPoint("bottomleft", searchBox.widget, "bottomleft", -15, 0)
+    searchBox.BottomLineTexture:SetPoint("bottomright", searchBox.widget, "bottomright", 0, 0)
+    searchBox.BottomLineTexture:SetAtlas("common-slider-track")
+    searchBox.BottomLineTexture:SetHeight(8)
+
     function gridScrollBox:RefreshMe()
         --transform the hash table into an array
         local listOfNpcs = {}
-        for npcId in pairs(Plater.PerformanceUnits) do
-            listOfNpcs[#listOfNpcs+1] = npcId
+
+        if (searchText ~= "") then
+            local npcDatabase = Plater.db.profile.npc_cache
+            for npcId in pairs(Plater.PerformanceUnits) do
+                local npcData = npcDatabase[npcId]
+                if (npcData and string.find(string.lower(npcData[1]), searchText)) then
+                    listOfNpcs[#listOfNpcs+1] = npcId
+                end
+            end
+        else
+            for npcId in pairs(Plater.PerformanceUnits) do
+                listOfNpcs[#listOfNpcs+1] = npcId
+            end
         end
 
         gridScrollBox:SetData(listOfNpcs)
