@@ -16,6 +16,8 @@
 ---@field IconTexture df_image
 ---@field NpcNameLabel df_label
 ---@field NpcIdLabel df_label
+---@field HighlightTexture texture
+---@field CloseButton df_button
 
 ---@class platerperfunits : table
 ---@field createdFrames boolean
@@ -150,7 +152,21 @@ function platerPerfUnits.CreatePluginWidgets()
 
     --function to be called when the user click on the add button
     local addNpcIDCallback = function()
-        print("you clicked the button!")
+        local npcId = tonumber(npcIDTextEntry:GetText())
+        if (not npcId) then
+            print(LOC.ADD_NPC_FAIL)
+            return
+        end
+        Plater.AddPerformanceUnits(npcId)
+        pluginFrame.GridScrollBox:RefreshMe()
+    end
+
+    local removeNpcIDCallback = function(dfButton, button, npcId)
+        if (not npcId) then
+            return
+        end
+        Plater.RemovePerformanceUnits(npcId)
+        pluginFrame.GridScrollBox:RefreshMe()
     end
 
     --create a button to add the npcId to the list
@@ -179,7 +195,6 @@ function platerPerfUnits.CreatePluginWidgets()
     ---@param npcId number
     local refreshNpcButtonInTheGrid = function(dfButton, npcId)
         dfButton.NpcIdLabel.text = tostring(npcId)
-        dfButton:SetIcon([[Interface\ICONS\INV_MouseHearthstone]])
 
         local npcData = Plater.db.profile.npc_cache[npcId]
         if (npcData) then
@@ -188,7 +203,9 @@ function platerPerfUnits.CreatePluginWidgets()
             dfButton.NpcNameLabel.text = _G.UNKNOWN
         end
 
-        print("npcData", npcData, npcData and npcData[1])
+        dfButton.CloseButton:SetClickFunction(removeNpcIDCallback, npcId)
+
+        --print("npcData", npcData, npcData and npcData[1])
     end
 
     --each line has more than 1 selection button, this function creates these buttons on each line
@@ -206,24 +223,34 @@ function platerPerfUnits.CreatePluginWidgets()
         button.textsize = 11
 
         --create an icon
-        local iconTexture = detailsFramework:CreateTexture(button, [[Interface\ICONS\INV_MouseHearthstone]], buttonHeight - 4, buttonHeight - 4, "artwork")
-        detailsFramework:SetMask(iconTexture, [[Interface\AddOns\Plater_PerfUnits\assets\textures\common-iconmask.png]])
+        local iconTexture = detailsFramework:CreateTexture(button, [[Interface\ICONS\INV_MouseHearthstone]], buttonHeight - 6, buttonHeight - 6, "artwork")
+        detailsFramework:SetMask(iconTexture, [[Interface\AddOns\Plater_PerfUnits\assets\textures\rounded-mask.png]])
         iconTexture:SetPoint("left", button, "left", 2, 0)
+        iconTexture:SetTexCoord(0.9, 0.1, 0.1, 0.9)
 
         --create a label for the npc name
-        local npcNameLabel = detailsFramework:CreateLabel(button, "", "SMALL_SILVER")
-        npcNameLabel:SetPoint("left", iconTexture, "right", 2, 4)
+        local npcNameLabel = detailsFramework:CreateLabel(button, "", "ORANGE_FONT_TEMPLATE")
+        npcNameLabel:SetPoint("left", iconTexture, "right", 5, 5)
 
         --create a label for the npcId
         local npcIdLabel = detailsFramework:CreateLabel(button, "", "SMALL_SILVER")
-        npcIdLabel:SetPoint("left", iconTexture, "right", 2, -4)
+        npcIdLabel:SetPoint("left", iconTexture, "right", 5, -5)
+
+        --create a close button to represent the remove button
+        local closeButton = detailsFramework:CreateButton(button, removeNpcIDCallback, 20, 20, "X")
+        closeButton:SetPoint("right", button, "right", 0, 0)
 
         --create a highlight texture for the button
-        button:CreateTexture("$parentHighlight", "highlight"):SetColorTexture(1, 1, 1, 0.15)
+        local highlightTexture = button:CreateTexture("$parentHighlight", "highlight")
+        highlightTexture:SetAlpha(0.1)
+        highlightTexture:SetTexture([[Interface\AddOns\Plater_PerfUnits\assets\textures\button-highlight.png]])
+        highlightTexture:SetAllPoints()
 
         button.IconTexture = iconTexture
         button.NpcNameLabel = npcNameLabel
         button.NpcIdLabel = npcIdLabel
+        button.HighlightTexture = highlightTexture
+        button.CloseButton = closeButton
 
         --add the button into a list of buttons created
         allGridFrameButtons[#allGridFrameButtons+1] = button
