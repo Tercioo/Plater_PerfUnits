@@ -114,7 +114,66 @@ function platerPerfUnits.OnInit(self, profile) --fired at PLAYER_LOGIN
         print(LOC.INSTALL_FAIL)
     end
 
+    platerPerfUnits.FillNameCache()
+    
     frame:SetScript("OnShow", platerPerfUnits.CreatePluginWidgets)
+end
+
+-- translation and helpers
+local npcNameCache = {}
+function platerPerfUnits.FillNameCache()
+    local maxPerFrame = 10
+    local translateTimer = 0.1
+    
+    local function GetCreatureNameFromID(npcID)
+        if C_TooltipInfo then
+            local info = C_TooltipInfo.GetHyperlink(("unit:Creature-0-0-0-0-%d"):format(npcID))
+            local leftText = info and info.lines and info.lines[1] and info.lines[1].leftText
+            if leftText and leftText ~= _G.UNKNOWN then
+                return leftText
+            end
+        else
+            local tooltipFrame = GetCreatureNameFromIDFinderTooltip or CreateFrame ("GameTooltip", "GetCreatureNameFromIDFinderTooltip", nil, "GameTooltipTemplate")
+            tooltipFrame:SetOwner (WorldFrame, "ANCHOR_NONE")
+            tooltipFrame:SetHyperlink (("unit:Creature-0-0-0-0-%d"):format(npcID))
+            local npcNameLine = _G ["GetCreatureNameFromIDFinderTooltipTextLeft1"]
+            return npcNameLine and npcNameLine:GetText()
+        end
+    end
+    
+    local fill_npc_name_cache
+    fill_npc_name_cache	= function()
+        if InCombatLockdown() then
+            C_Timer.After(5, fill_npc_name_cache)
+            return
+        end
+        
+        local count = 0
+        local leftOvers = true -- late init for perf units
+        local npcDatabase = Plater.db.profile.npc_cache
+        for id, _ in pairs(Plater.PerformanceUnits) do
+            local leftOvers = false
+            local entry = npcDatabase[id]
+            if (not entry or not entry[3]) and not npcNameCache[id] then
+                local npcName = GetCreatureNameFromID(id)
+                if npcName then
+                    npcNameCache[id] = npcName
+                else
+                    leftOvers = true -- could not be translated
+                end
+            end
+            
+            if count >= maxPerFrame then
+                leftOvers = true
+                break
+            end
+        end
+        
+        if leftOvers then
+            C_Timer.After(translateTimer, fill_npc_name_cache)
+        end
+    end
+    fill_npc_name_cache()
 end
 
 function platerPerfUnits.CreatePluginWidgets()
@@ -206,7 +265,7 @@ function platerPerfUnits.CreatePluginWidgets()
         if (npcData) then
             dfButton.NpcNameLabel.text = npcData[1] --[1] npc name [2] location name [3] language
         else
-            dfButton.NpcNameLabel.text = _G.UNKNOWN
+            dfButton.NpcNameLabel.text = npcNameCache[npcId] or _G.UNKNOWN
         end
 
         dfButton.CloseButton:SetClickFunction(removeNpcIDCallback, npcId)
