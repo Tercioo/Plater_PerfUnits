@@ -229,6 +229,7 @@ function platerPerfUnits.CreatePluginWidgets()
         end
         Plater.AddPerformanceUnits(npcId)
         platerPerfUnits.FillNameCache()
+        npcIDTextEntry:SetText("")
         pluginFrame.GridScrollBox:RefreshMe()
     end
 
@@ -241,9 +242,9 @@ function platerPerfUnits.CreatePluginWidgets()
     end
 
     --create a button to add the npcId to the list
-    local addAuraButton = detailsFramework:CreateButton(pluginFrame, addNpcIDCallback, 60, 32, "Add")
-    addAuraButton:SetPoint("left", npcIDTextEntry, "right", 5, 0)
-    detailsFramework:AddRoundedCornersToFrame(addAuraButton.widget, roundedFramePreset)
+    local addNpcButton = detailsFramework:CreateButton(pluginFrame, addNpcIDCallback, 60, 32, "Add")
+    addNpcButton:SetPoint("left", npcIDTextEntry, "right", 5, 0)
+    detailsFramework:AddRoundedCornersToFrame(addNpcButton.widget, roundedFramePreset)
 
     --create the scroll to display the npcs added into the performance list
 
