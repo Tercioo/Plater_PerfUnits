@@ -152,7 +152,7 @@ function platerPerfUnits.FillNameCache()
         local leftOvers = true -- late init for perf units
         local npcDatabase = Plater.db.profile.npc_cache
         for id, _ in pairs(Plater.PerformanceUnits) do
-            local leftOvers = false
+            leftOvers = false
             local entry = npcDatabase[id]
             if (not entry or not entry[3]) and not npcNameCache[id] then
                 local npcName = GetCreatureNameFromID(id)
@@ -171,6 +171,11 @@ function platerPerfUnits.FillNameCache()
         
         if leftOvers then
             C_Timer.After(translateTimer, fill_npc_name_cache)
+        end
+        
+        local pluginFrame = platerPerfUnits:GetPluginFrame()
+        if pluginFrame and pluginFrame.GridScrollBox then
+            pluginFrame.GridScrollBox:RefreshMe()
         end
     end
     fill_npc_name_cache()
@@ -223,6 +228,7 @@ function platerPerfUnits.CreatePluginWidgets()
             return
         end
         Plater.AddPerformanceUnits(npcId)
+        platerPerfUnits.FillNameCache()
         pluginFrame.GridScrollBox:RefreshMe()
     end
 
