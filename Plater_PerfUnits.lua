@@ -154,7 +154,8 @@ function platerPerfUnits.FillNameCache()
         for id, _ in pairs(Plater.PerformanceUnits) do
             leftOvers = false
             local entry = npcDatabase[id]
-            if (not entry or not entry[3]) and not npcNameCache[id] then
+            if (not entry or not entry[3]) or not npcNameCache[id] then
+                count = count + 1
                 local npcName = GetCreatureNameFromID(id)
                 if npcName then
                     npcNameCache[id] = npcName
@@ -279,6 +280,29 @@ function platerPerfUnits.CreatePluginWidgets()
 
         --print("npcData", npcData, npcData and npcData[1])
     end
+    
+    --when the user hover over an npc button
+    local onenter_npc_button = function (self, _)
+        DevTool:AddData(self)
+        local npcID = tonumber(self.MyObject.NpcIdLabel.text)
+        if npcID then
+            GameTooltip:SetOwner (self, "ANCHOR_RIGHT")
+            GameTooltip:SetHyperlink (("unit:Creature-0-0-0-0-%d"):format(npcID))
+            GameTooltip:AddLine (" ")
+            if tonumber(npcID) and Plater.db.profile.npc_cache[tonumber(npcID)] then
+                GameTooltip:AddLine (Plater.db.profile.npc_cache[tonumber(npcID)][2] or "???")
+                GameTooltip:AddLine (" ")
+            end
+            GameTooltip:Show()
+        end
+        --self:SetBackdropColor (.3, .3, .3, 0.7)
+    end
+
+    --when the user leaves an npc button from a hover over
+    local onleave_npc_button = function (self)
+        GameTooltip:Hide()
+        --self:SetBackdropColor (unpack (scrollbox_line_backdrop_color))
+    end
 
     --each line has more than 1 selection button, this function creates these buttons on each line
     local createNpcButton = function(line, lineIndex, columnIndex)
@@ -323,6 +347,9 @@ function platerPerfUnits.CreatePluginWidgets()
         button.NpcIdLabel = npcIdLabel
         button.HighlightTexture = highlightTexture
         button.CloseButton = closeButton
+        
+        button:SetScript ("OnEnter", onenter_npc_button)
+        button:SetScript ("OnLeave", onleave_npc_button)
 
         --add the button into a list of buttons created
         allGridFrameButtons[#allGridFrameButtons+1] = button
