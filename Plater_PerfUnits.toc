@@ -23,8 +23,8 @@
 #@version-classic@
 ## Version: @project-version@-Vanilla
 #@end-version-classic@
-## X-Curse-Project-ID: 
-## X-Wago-ID: 
+## X-Curse-Project-ID: 1030801
+## X-Wago-ID: ZKxq0pGk
 
 locales\enUS.lua
 locales\deDE.lua
