@@ -281,6 +281,12 @@ function platerPerfUnits.CreatePluginWidgets()
         --print("npcData", npcData, npcData and npcData[1])
     end
     
+    local npc3DFrame = CreateFrame ("playermodel", "", nil, "ModelWithControlsTemplate")
+    npc3DFrame:SetSize (200, 250)
+    npc3DFrame:EnableMouse (false)
+    npc3DFrame:EnableMouseWheel (false)
+    npc3DFrame:Hide()
+    
     --when the user hover over an npc button
     local onenter_npc_button = function (self, _)
         DevTool:AddData(self)
@@ -289,10 +295,14 @@ function platerPerfUnits.CreatePluginWidgets()
             GameTooltip:SetOwner (self, "ANCHOR_RIGHT")
             GameTooltip:SetHyperlink (("unit:Creature-0-0-0-0-%d"):format(npcID))
             GameTooltip:AddLine (" ")
-            if tonumber(npcID) and Plater.db.profile.npc_cache[tonumber(npcID)] then
-                GameTooltip:AddLine (Plater.db.profile.npc_cache[tonumber(npcID)][2] or "???")
+            if Plater.db.profile.npc_cache[npcID] then
+                GameTooltip:AddLine (Plater.db.profile.npc_cache[npcID][2] or "???")
                 GameTooltip:AddLine (" ")
             end
+            npc3DFrame:SetCreature(npcID)
+            npc3DFrame:SetParent(GameTooltip)
+            npc3DFrame:SetPoint ("top", GameTooltip, "bottom", 0, -10)
+            npc3DFrame:Show()
             GameTooltip:Show()
         end
         --self:SetBackdropColor (.3, .3, .3, 0.7)
@@ -300,6 +310,9 @@ function platerPerfUnits.CreatePluginWidgets()
 
     --when the user leaves an npc button from a hover over
     local onleave_npc_button = function (self)
+        npc3DFrame:SetParent(nil)
+        npc3DFrame:ClearAllPoints()
+        npc3DFrame:Hide()
         GameTooltip:Hide()
         --self:SetBackdropColor (unpack (scrollbox_line_backdrop_color))
     end
