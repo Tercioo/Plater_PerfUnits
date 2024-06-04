@@ -1,6 +1,3 @@
 
 *.afphoto
-/libs
-/DF
-definitions.lua
 Plater_PerfUnits_dev.toc
