@@ -289,7 +289,6 @@ function platerPerfUnits.CreatePluginWidgets()
     
     --when the user hover over an npc button
     local onenter_npc_button = function (self, _)
-        DevTool:AddData(self)
         local npcID = tonumber(self.MyObject.NpcIdLabel.text)
         if npcID then
             GameTooltip:SetOwner (self, "ANCHOR_RIGHT")
