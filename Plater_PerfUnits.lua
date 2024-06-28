@@ -409,15 +409,17 @@ function platerPerfUnits.CreatePluginWidgets()
 
         if (searchText ~= "") then
             local npcDatabase = Plater.db.profile.npc_cache
-            for npcId in pairs(Plater.PerformanceUnits) do
+            for npcId, enabled in pairs(Plater.PerformanceUnits) do
                 local npcData = npcDatabase[npcId]
-                if (npcData and string.find(string.lower(npcData[1]), searchText)) then
+                if (npcData and string.find(string.lower(npcData[1]), searchText) and enabled) then
                     listOfNpcs[#listOfNpcs+1] = npcId
                 end
             end
         else
-            for npcId in pairs(Plater.PerformanceUnits) do
-                listOfNpcs[#listOfNpcs+1] = npcId
+            for npcId, enabled in pairs(Plater.PerformanceUnits) do
+                if enabled then
+                    listOfNpcs[#listOfNpcs+1] = npcId
+                end
             end
         end
 
