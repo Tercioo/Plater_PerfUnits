@@ -12,12 +12,20 @@
 ---@class performanceunits_frame : frame
 ---@field GridScrollBox df_gridscrollbox
 
+---@class bypass_indicators : table
+---@field threat df_image
+---@field castbar df_image
+---@field aura df_image
+
 ---@class performanceunits_grid_button : df_button
+---@field npcId number
 ---@field IconTexture df_image
 ---@field NpcNameLabel df_label
 ---@field NpcIdLabel df_label
 ---@field HighlightTexture texture
 ---@field CloseButton df_button
+---@field SelectWhatToTrackButton df_button
+---@field ByPassDotIndicators bypass_indicators
 
 ---@class platerperfunits : table
 ---@field createdFrames boolean
@@ -26,6 +34,13 @@
 ---@field OnInit fun(self:platerperfunits, profile:performanceunits_settings)
 ---@field GetPluginObject fun(self:platerperfunits):performanceunits_plugin
 ---@field GetPluginFrame fun(self:platerperfunits):performanceunits_frame
+
+---@class perf_unit_filter_option : table
+---@field threat boolean?
+---@field castbar boolean?
+---@field aura boolean?
+
+---@alias tracking_type "threat"|"castbar"|"aura"
 
 local addonId, pPU = ...
 local _ = nil
@@ -37,6 +52,26 @@ local _
 
 --localization
 local LOC = detailsFramework.Language.GetLanguageTable(addonId)
+
+---@type string[]
+local trackingTypesLoc = {
+    LOC["THREAT"],
+    LOC["CASTBAR"],
+    LOC["AURA"],
+}
+
+local trackingTypes = {
+    ["threat"] = true,
+    ["castbar"] = true,
+    ["aura"] = true,
+}
+
+local trackingTypesByIndex = {
+    "threat",
+    "castbar",
+    "aura",
+}
+
 
 --rounded frame preset
 local roundedFramePreset = {
@@ -238,14 +273,78 @@ function platerPerfUnits.CreatePluginWidgets()
         if (not npcId) then
             return
         end
-        Plater.RemovePerformanceUnits(npcId)
-        pluginFrame.GridScrollBox:RefreshMe()
+
+        GameCooltip:Preset(2)
+
+        GameCooltip:AddLine("Confirm Remove Unit?")
+        GameCooltip:AddMenu(1, function() Plater.RemovePerformanceUnits(npcId); pluginFrame.GridScrollBox:RefreshMe(); GameCooltip:Hide() end)
+        GameCooltip:AddIcon([[Interface\BUTTONS\UI-Panel-MinimizeButton-Up]] or "", 1, 1, 20, 20)
+
+        GameCooltip:SetOwner(dfButton)
+        GameCooltip:Show()
     end
 
     --create a button to add the npcId to the list
-    local addNpcButton = detailsFramework:CreateButton(pluginFrame, addNpcIDCallback, 60, 32, "Add")
+    local addNpcButton = detailsFramework:CreateButton(pluginFrame, addNpcIDCallback, 60, 32, LOC["ADD"])
     addNpcButton:SetPoint("left", npcIDTextEntry, "right", 5, 0)
     detailsFramework:AddRoundedCornersToFrame(addNpcButton.widget, roundedFramePreset)
+
+    --connect the savedVariable table on this local, example: tempDatabase = Plater.db.profile.perf_units_config
+    ---@type table<npcid, perf_unit_filter_option>
+    local tempDatabase = {}
+
+    local getNpcByPassConfig = function(npcId)
+        local thisNpcConfig = tempDatabase[npcId]
+        if (not thisNpcConfig) then
+            thisNpcConfig = {}
+            tempDatabase[npcId] = thisNpcConfig
+        end
+        return thisNpcConfig
+    end
+
+    ---@param npcId npcid
+    ---@param trackingType tracking_type
+    local isTrackingEnabled = function(npcId, trackingType)
+        local thisNpcConfig = getNpcByPassConfig(npcId)
+        return thisNpcConfig[trackingType]
+    end
+
+    local onSelectTrackingOption = function(button, dfButton, npcId, trackingType)
+        local thisNpcConfig = getNpcByPassConfig(npcId)
+        thisNpcConfig[trackingType] = not thisNpcConfig[trackingType]
+        GameCooltip:Hide()
+        pluginFrame.GridScrollBox:RefreshMe()
+        dfButton:Click()
+    end
+
+    local menuOpenedForNpcId
+
+    ---@param gridButton performanceunits_grid_button
+    local onClickSelectFilterButton = function(gridButton, mouseButton)
+        if (GameCooltip:IsShown() and menuOpenedForNpcId == gridButton.MyObject.npcId) then
+            GameCooltip:Hide()
+            return
+        end
+
+        gridButton = gridButton.MyObject
+        GameCooltip:Preset(2)
+        local npcId = gridButton.npcId
+
+        GameCooltip:AddLine(LOC["BYPASS_SETTINGS"] , "")
+
+        for trackingId = 1, #trackingTypesLoc do
+            local trackingTypeName = trackingTypesLoc[trackingId]
+            GameCooltip:AddLine(trackingTypeName, "")
+            GameCooltip:AddMenu(1, onSelectTrackingOption, npcId, trackingTypesByIndex[trackingId])
+            GameCooltip:AddIcon(isTrackingEnabled(npcId, trackingTypesByIndex[trackingId]) and [[Interface\BUTTONS\UI-CheckBox-Check]] or "", 1, 1, 20, 20)
+        end
+
+        menuOpenedForNpcId = npcId
+
+        GameCooltip:SetFixedParameter(gridButton)
+        GameCooltip:SetOwner(gridButton.widget)
+        GameCooltip:Show()
+    end
 
     --create the scroll to display the npcs added into the performance list
 
@@ -269,6 +368,9 @@ function platerPerfUnits.CreatePluginWidgets()
     local refreshNpcButtonInTheGrid = function(dfButton, npcId)
         dfButton.NpcIdLabel.text = tostring(npcId)
 
+        dfButton.npcId = npcId
+        dfButton.SelectWhatToTrackButton.npcId = npcId
+
         local npcData = Plater.db.profile.npc_cache[npcId]
         if (npcData) then
             dfButton.NpcNameLabel.text = npcData[1] --[1] npc name [2] location name [3] language
@@ -278,7 +380,10 @@ function platerPerfUnits.CreatePluginWidgets()
 
         dfButton.CloseButton:SetClickFunction(removeNpcIDCallback, npcId)
 
-        --print("npcData", npcData, npcData and npcData[1])
+        local thisNpcConfig = getNpcByPassConfig(npcId)
+        dfButton.ByPassDotIndicators.aura:SetShown(thisNpcConfig.aura)
+        dfButton.ByPassDotIndicators.castbar:SetShown(thisNpcConfig.castbar)
+        dfButton.ByPassDotIndicators.threat:SetShown(thisNpcConfig.threat)
     end
     
     local npc3DFrame = CreateFrame ("playermodel", "", nil, "ModelWithControlsTemplate")
@@ -345,8 +450,11 @@ function platerPerfUnits.CreatePluginWidgets()
         npcIdLabel:SetPoint("left", iconTexture, "right", 5, -5)
 
         --create a close button to represent the remove button
-        local closeButton = detailsFramework:CreateButton(button, removeNpcIDCallback, removeButtonSize, removeButtonSize, "X")
-        closeButton:SetPoint("right", button, "right", 0, 0)
+        local removeButton = detailsFramework:CreateButton(button, removeNpcIDCallback, removeButtonSize, removeButtonSize, "")
+        removeButton:SetIcon("common-search-clearbutton", 12, 12, "artwork", nil, {0.476, 0.476, 0.476, 1})
+        removeButton:SetSize(12, 12)
+        removeButton:SetPoint("right", button, "right", -7, 4)
+        removeButton.icon:SetVertexColor(0.376, 0.376, 0.376, 1)
 
         --create a highlight texture for the button
         local highlightTexture = button:CreateTexture("$parentHighlight", "highlight")
@@ -354,12 +462,40 @@ function platerPerfUnits.CreatePluginWidgets()
         highlightTexture:SetTexture(buttonHighlightTexture)
         highlightTexture:SetAllPoints()
 
+        --create a simple details framework button with size of 20x20
+        local selectWhatToTrackButton = detailsFramework:CreateButton(button, onClickSelectFilterButton, 12, 12)
+        selectWhatToTrackButton:SetIcon([[Interface\BUTTONS\UI-GuildButton-PublicNote-Up]], 13, 13, "artwork")
+        selectWhatToTrackButton:SetSize(12, 12)
+        selectWhatToTrackButton:SetPoint("right", removeButton, "left", -7, 4)
+        selectWhatToTrackButton.icon:SetDesaturation(0.98)
+        selectWhatToTrackButton.icon:SetAlpha(0.65)
+        selectWhatToTrackButton:Hide()
+
+        button:SetClickFunction(onClickSelectFilterButton)
+
+        local byPassDotIndicators = {
+            threat = detailsFramework:CreateTexture(button, [[Interface\AddOns\Plater_PerfUnits\assets\textures\dot.png]], 8, 8, "artwork"),
+            castbar = detailsFramework:CreateTexture(button, [[Interface\AddOns\Plater_PerfUnits\assets\textures\dot.png]], 8, 8, "artwork"),
+            aura = detailsFramework:CreateTexture(button, [[Interface\AddOns\Plater_PerfUnits\assets\textures\dot.png]], 8, 8, "artwork"),
+        }
+
+        byPassDotIndicators.threat:SetVertexColor(0.5, 0.5, 0.5, 0.5)
+        byPassDotIndicators.castbar:SetVertexColor(0.5, 0.5, 0.5, 0.5)
+        byPassDotIndicators.aura:SetVertexColor(0.5, 0.5, 0.5, 0.5)
+
+        byPassDotIndicators.threat:SetPoint("bottomright", button, "bottomright", -5, 4)
+        byPassDotIndicators.castbar:SetPoint("right", byPassDotIndicators.threat, "left", -4, 0)
+        byPassDotIndicators.aura:SetPoint("right", byPassDotIndicators.castbar, "left", -4, 0)
+
+        button.ByPassDotIndicators = byPassDotIndicators
+
         button.IconTexture = iconTexture
         button.NpcNameLabel = npcNameLabel
         button.NpcIdLabel = npcIdLabel
         button.HighlightTexture = highlightTexture
-        button.CloseButton = closeButton
-        
+        button.CloseButton = removeButton
+        button.SelectWhatToTrackButton = selectWhatToTrackButton
+
         button:SetScript ("OnEnter", onenter_npc_button)
         button:SetScript ("OnLeave", onleave_npc_button)
 
