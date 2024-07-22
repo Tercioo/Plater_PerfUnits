@@ -150,7 +150,7 @@ function platerPerfUnits.OnInit(self, profile) --fired at PLAYER_LOGIN
     end
 
     platerPerfUnits.FillNameCache()
-    
+
     frame:SetScript("OnShow", platerPerfUnits.CreatePluginWidgets)
 end
 
@@ -159,7 +159,7 @@ local npcNameCache = {}
 function platerPerfUnits.FillNameCache()
     local maxPerFrame = 10
     local translateTimer = 0.1
-    
+
     local function GetCreatureNameFromID(npcID)
         if C_TooltipInfo then
             local info = C_TooltipInfo.GetHyperlink(("unit:Creature-0-0-0-0-%d"):format(npcID))
@@ -175,14 +175,14 @@ function platerPerfUnits.FillNameCache()
             return npcNameLine and npcNameLine:GetText()
         end
     end
-    
+
     local fill_npc_name_cache
     fill_npc_name_cache	= function()
         if InCombatLockdown() then
             C_Timer.After(5, fill_npc_name_cache)
             return
         end
-        
+
         local count = 0
         local leftOvers = true -- late init for perf units
         local npcDatabase = Plater.db.profile.npc_cache
@@ -198,17 +198,17 @@ function platerPerfUnits.FillNameCache()
                     leftOvers = true -- could not be translated
                 end
             end
-            
+
             if count >= maxPerFrame then
                 leftOvers = true
                 break
             end
         end
-        
+
         if leftOvers then
             C_Timer.After(translateTimer, fill_npc_name_cache)
         end
-        
+
         local pluginFrame = platerPerfUnits:GetPluginFrame()
         if pluginFrame and pluginFrame.GridScrollBox then
             pluginFrame.GridScrollBox:RefreshMe()
@@ -385,13 +385,13 @@ function platerPerfUnits.CreatePluginWidgets()
         dfButton.ByPassDotIndicators.castbar:SetShown(thisNpcConfig.castbar)
         dfButton.ByPassDotIndicators.threat:SetShown(thisNpcConfig.threat)
     end
-    
+
     local npc3DFrame = CreateFrame ("playermodel", "", nil, "ModelWithControlsTemplate")
     npc3DFrame:SetSize (200, 250)
     npc3DFrame:EnableMouse (false)
     npc3DFrame:EnableMouseWheel (false)
     npc3DFrame:Hide()
-    
+
     --when the user hover over an npc button
     local onenter_npc_button = function (self, _)
         local npcID = tonumber(self.MyObject.NpcIdLabel.text)
@@ -412,6 +412,18 @@ function platerPerfUnits.CreatePluginWidgets()
         --self:SetBackdropColor (.3, .3, .3, 0.7)
     end
 
+    local onenter_npc_button = function (self)
+        local npcId = tonumber(self.MyObject.NpcIdLabel.text)
+        if (npcId) then
+            GameCooltip:Preset(2)
+            GameCooltip:SetOption("FixedWidth", 150)
+            GameCooltip:SetOption("FixedHeight", 150)
+            GameCooltip:SetOwner(self, "bottom", "top", 0, 5)
+            GameCooltip:SetNpcModel("main", npcId)
+            GameCooltip:Show()
+        end
+    end
+
     --when the user leaves an npc button from a hover over
     local onleave_npc_button = function (self)
         npc3DFrame:SetParent(nil)
@@ -419,6 +431,11 @@ function platerPerfUnits.CreatePluginWidgets()
         npc3DFrame:Hide()
         GameTooltip:Hide()
         --self:SetBackdropColor (unpack (scrollbox_line_backdrop_color))
+    end
+
+    --when the user leaves an npc button from a hover over
+    local onleave_npc_button = function (self)
+        GameCooltip:Hide()
     end
 
     --each line has more than 1 selection button, this function creates these buttons on each line
