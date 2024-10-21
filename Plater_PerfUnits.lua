@@ -412,17 +412,17 @@ function platerPerfUnits.CreatePluginWidgets()
         --self:SetBackdropColor (.3, .3, .3, 0.7)
     end
 
-    local onenter_npc_button = function (self)
-        local npcId = tonumber(self.MyObject.NpcIdLabel.text)
-        if (npcId) then
-            GameCooltip:Preset(2)
-            GameCooltip:SetOption("FixedWidth", 150)
-            GameCooltip:SetOption("FixedHeight", 150)
-            GameCooltip:SetOwner(self, "bottom", "top", 0, 5)
-            GameCooltip:SetNpcModel("main", npcId)
-            GameCooltip:Show()
-        end
-    end
+--    local onenter_npc_button = function (self)
+--        local npcId = tonumber(self.MyObject.NpcIdLabel.text)
+--        if (npcId) then
+--            GameCooltip:Preset(2)
+--            GameCooltip:SetOption("FixedWidth", 150)
+--            GameCooltip:SetOption("FixedHeight", 150)
+--            GameCooltip:SetOwner(self, "bottom", "top", 0, 5)
+--            GameCooltip:SetNpcModel("main", npcId)
+--            GameCooltip:Show()
+--        end
+--    end
 
     --when the user leaves an npc button from a hover over
     local onleave_npc_button = function (self)
@@ -434,9 +434,9 @@ function platerPerfUnits.CreatePluginWidgets()
     end
 
     --when the user leaves an npc button from a hover over
-    local onleave_npc_button = function (self)
-        GameCooltip:Hide()
-    end
+--    local onleave_npc_button = function (self)
+--        GameCooltip:Hide()
+--    end
 
     --each line has more than 1 selection button, this function creates these buttons on each line
     local createNpcButton = function(line, lineIndex, columnIndex)
