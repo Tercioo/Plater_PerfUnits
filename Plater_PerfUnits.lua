@@ -60,16 +60,10 @@ local trackingTypesLoc = {
     LOC["AURA"],
 }
 
-local trackingTypes = {
-    ["threat"] = true,
-    ["castbar"] = true,
-    ["aura"] = true,
-}
-
 local trackingTypesByIndex = {
-    "threat",
-    "castbar",
-    "aura",
+    Plater.PERF_UNIT_OVERRIDES_BIT.THREAT, --"threat",
+    Plater.PERF_UNIT_OVERRIDES_BIT.CAST, --"castbar",
+    Plater.PERF_UNIT_OVERRIDES_BIT.AURA, --"aura",
 }
 
 
@@ -289,29 +283,18 @@ function platerPerfUnits.CreatePluginWidgets()
     addNpcButton:SetPoint("left", npcIDTextEntry, "right", 5, 0)
     detailsFramework:AddRoundedCornersToFrame(addNpcButton.widget, roundedFramePreset)
 
-    --connect the savedVariable table on this local, example: tempDatabase = Plater.db.profile.perf_units_config
-    ---@type table<npcid, perf_unit_filter_option>
-    local tempDatabase = {}
-
-    local getNpcByPassConfig = function(npcId)
-        local thisNpcConfig = tempDatabase[npcId]
-        if (not thisNpcConfig) then
-            thisNpcConfig = {}
-            tempDatabase[npcId] = thisNpcConfig
-        end
-        return thisNpcConfig
-    end
-
     ---@param npcId npcid
     ---@param trackingType tracking_type
     local isTrackingEnabled = function(npcId, trackingType)
-        local thisNpcConfig = getNpcByPassConfig(npcId)
-        return thisNpcConfig[trackingType]
+        return Plater.PerformanceUnitsGetOverride(npcId, trackingType) > 0
     end
 
     local onSelectTrackingOption = function(button, dfButton, npcId, trackingType)
-        local thisNpcConfig = getNpcByPassConfig(npcId)
-        thisNpcConfig[trackingType] = not thisNpcConfig[trackingType]
+        if isTrackingEnabled(npcId, trackingType) then
+            Plater.PerformanceUnitsRemoveOverride(npcId, trackingType)
+        else
+            Plater.PerformanceUnitsSetOverride(npcId, trackingType)
+        end
         GameCooltip:Hide()
         pluginFrame.GridScrollBox:RefreshMe()
         dfButton:Click()
@@ -380,10 +363,9 @@ function platerPerfUnits.CreatePluginWidgets()
 
         dfButton.CloseButton:SetClickFunction(removeNpcIDCallback, npcId)
 
-        local thisNpcConfig = getNpcByPassConfig(npcId)
-        dfButton.ByPassDotIndicators.aura:SetShown(thisNpcConfig.aura)
-        dfButton.ByPassDotIndicators.castbar:SetShown(thisNpcConfig.castbar)
-        dfButton.ByPassDotIndicators.threat:SetShown(thisNpcConfig.threat)
+        dfButton.ByPassDotIndicators.aura:SetShown(isTrackingEnabled(npcId, Plater.PERF_UNIT_OVERRIDES_BIT.AURA))
+        dfButton.ByPassDotIndicators.castbar:SetShown(isTrackingEnabled(npcId, Plater.PERF_UNIT_OVERRIDES_BIT.CAST))
+        dfButton.ByPassDotIndicators.threat:SetShown(isTrackingEnabled(npcId, Plater.PERF_UNIT_OVERRIDES_BIT.THREAT))
     end
 
     local npc3DFrame = CreateFrame ("playermodel", "", nil, "ModelWithControlsTemplate")
