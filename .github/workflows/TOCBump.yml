@@ -2,10 +2,14 @@ name: Update TOC Interface version(s)
 
 on:
   schedule:
-    - cron: 0 0 * * *
+    - cron: 0 6 * * *
 #  push:
 #    branches:
 #      - master
+
+permissions:
+  pull-requests: write
+  contents: write
 
 jobs:
   run:
