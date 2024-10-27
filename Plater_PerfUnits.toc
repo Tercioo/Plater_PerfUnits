@@ -1,6 +1,6 @@
-## Interface: 110002
-## Interface-Mainline: 110002
-## Interface-Cata: 40400
+## Interface: 110005
+## Interface-Mainline: 110005
+## Interface-Cata: 40401
 ## Interface-Vanilla: 11504
 ## RequiredDeps: Plater
 ## Title: Plater Performance Units (plugin)
