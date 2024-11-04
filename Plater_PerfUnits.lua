@@ -87,7 +87,7 @@ local roundedInformatioFrameSettings = {
     paddingFromTop = -10,
 }
 
-local removeButtonSize = 20
+local removeButtonSize = 12
 local highlightTextureAlpha = 0.1
 local buttonHighlightTexture = [[Interface\AddOns\Plater_PerfUnits\assets\textures\button-highlight.png]]
 
@@ -146,6 +146,8 @@ function platerPerfUnits.OnInit(self, profile) --fired at PLAYER_LOGIN
     platerPerfUnits.FillNameCache()
 
     frame:SetScript("OnShow", platerPerfUnits.CreatePluginWidgets)
+    --If cooltip is showing when plugin frame is hidden, hide the cooltip as well. Cooltip will only have stuff like "Sure you want to delete?" or "Threat/Castbar/Auras"
+    frame:SetScript("OnHide", function() if GameCooltip:IsShown() then GameCooltip:Hide() end end)
 end
 
 -- translation and helpers
@@ -450,9 +452,9 @@ function platerPerfUnits.CreatePluginWidgets()
 
         --create a close button to represent the remove button
         local removeButton = detailsFramework:CreateButton(button, removeNpcIDCallback, removeButtonSize, removeButtonSize, "")
-        removeButton:SetIcon("common-search-clearbutton", 12, 12, "artwork", nil, {0.476, 0.476, 0.476, 1})
-        removeButton:SetSize(12, 12)
-        removeButton:SetPoint("right", button, "right", -7, 4)
+        removeButton:SetIcon("common-search-clearbutton", removeButtonSize, removeButtonSize, "artwork", nil, {0.476, 0.476, 0.476, 1}, nil, -4)
+        removeButton:SetSize(removeButtonSize, removeButtonSize)
+        removeButton:SetPoint("topright", button, "topright", -4, -4)
         removeButton.icon:SetVertexColor(0.376, 0.376, 0.376, 1)
 
         --create a highlight texture for the button
