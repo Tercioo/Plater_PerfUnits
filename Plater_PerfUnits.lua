@@ -53,6 +53,10 @@ local _
 --localization
 local LOC = detailsFramework.Language.GetLanguageTable(addonId)
 
+--version string
+local metadataVersion = C_AddOns.GetAddOnMetadata('Plater_PerfUnits', 'version')
+local versionString = 'Plater_PerfUnits-'.. (string.match(metadataVersion, 'Plater%-PerfUnits%.v%d+%.(%d+)%-%w+') or 'UNKNOWN') .. '-' .. GetBuildInfo()
+
 ---@type string[]
 local trackingTypesLoc = {
     LOC["THREAT"],
@@ -224,6 +228,15 @@ function platerPerfUnits.CreatePluginWidgets()
 
     local pluginFrame = platerPerfUnits:GetPluginFrame()
     local width, height = pluginFrame:GetSize()
+
+    --create a label at the top right showing the plugin version
+
+    local versionFrame = CreateFrame('frame', '$parentVersionFrame', pluginFrame)
+    versionFrame:SetSize(10,10)
+    versionFrame:SetPoint('bottomleft', pluginFrame, 'bottomleft', 0, 0)
+    local versionLabel = detailsFramework:CreateLabel(versionFrame, versionString, 12, 'gray')
+    versionLabel:SetPoint('left', versionFrame, 'left', 0, 0)
+    versionLabel:SetAlpha(.3)
 
     --create a rounded block in the top of the frame informing what a performance unit is
     local roundedInformationFrame = CreateFrame("frame", "$parentRoundedInfoFrame", pluginFrame)
