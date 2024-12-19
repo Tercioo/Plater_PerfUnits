@@ -8,13 +8,17 @@ end
 local _
 --lua locals
 local unpack = table.unpack or unpack --lua local
-local floor = math.floor --lua local
 local CreateFrame = CreateFrame
 
 local PixelUtil = PixelUtil or DFPixelUtil
 
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
---horizontal scroll frame
+---@alias timelinecomponenttype
+---| "line"
+---| "block"
+---| "length"
+---| "header"
+---| "timeline"
+---| "body"
 
 ---@class df_timeline_options : table
 ---@field width number
@@ -42,13 +46,21 @@ local PixelUtil = PixelUtil or DFPixelUtil
 ---@field text_tempate string "OPTIONS_FONT_TEMPLATE"
 ---@field on_enter fun(self:df_timeline_line) --line
 ---@field on_leave fun(self:df_timeline_line) --line
+---@field on_create_line fun(self:df_timeline_line) --line
+---@field on_refresh_line fun(self:df_timeline_line) --line
 ---@field block_on_enter fun(self:button)
 ---@field block_on_leave fun(self:button)
 ---@field block_on_click fun(self:button)
 ---@field block_on_create fun(self:df_timeline_line_block)
 ---@field block_on_set_data fun(self:button, data:table)
+---@field block_on_create_auralength fun(self:df_timeline_line_block)
+---@field block_on_create_blocklength fun(self:df_timeline_line_block)
 ---@field block_on_enter_auralength fun(self:df_timeline_line_block)
 ---@field block_on_leave_auralength fun(self:df_timeline_line_block)
+---@field block_on_click_auralength fun(self:df_timeline_line_block, button:string)
+---@field block_on_enter_blocklength fun(self:df_timeline_line_block)
+---@field block_on_leave_blocklength fun(self:df_timeline_line_block)
+---@field block_on_click_blocklength fun(self:df_timeline_line_block, button:string)
 local timeline_options = {
 	width = 400,
 	height = 700,
@@ -108,20 +120,20 @@ local timeline_options = {
 ---@class df_timeline_block_data : table
 ---@field [1] number timeInSeconds
 ---@field [2] number length
----@field [3] boolean isAura
----@field [4] number auraDuration
----@field [5] number blockSpellId
+---@field [3] boolean? isAura
+---@field [4] number? auraDuration
+---@field [5] number? blockSpellId
 ---@field payload any
 ---@field customIcon any
 ---@field customName any
 ---@field isIconRow boolean?
 ---@field showRightIcon boolean?
----@field blockLengthColor any
----@field blockLengthHeight number?
----@field blockLengthYOffset number?
----@field auraLengthColor any --back compatibility
----@field auraHeight number? --back compatibility
----@field auraYOffset number? --back compatibility
+---@field blockLengthHeight number? --need to remove
+---@field blockLengthYOffset number? --need to remove
+---@field auraLengthColor any
+---@field auraLengthTexture any
+---@field auraHeight number?
+---@field auraYOffset number?
 
 ---@class df_timeline_linedata : table
 ---@field spellId number
@@ -129,6 +141,9 @@ local timeline_options = {
 ---@field coords number[]?
 ---@field text string?
 ---@field timeline df_timeline_block_data[]
+---@field lineHeight number?
+---@field disabled boolean?
+---@field type string|number? helper to identify the line, defined by user
 
 ---@class df_timeline_scrolldata : table
 ---@field length number
@@ -145,15 +160,18 @@ local timeline_options = {
 ---@field customName any
 
 ---@class df_timeline_line_block : button
+---@field type timelinecomponenttype
 ---@field icon texture
 ---@field text fontstring
 ---@field background texture
 ---@field blockLength df_timeline_line_blocklength
 ---@field info df_timeline_line_blockinfo
+---@field blockData df_timeline_block_data
 ---@field timeline df_timeline
----@field backgroundBorder frame
+---@field backgroundBorder border_frame
 
 ---@class df_timeline_line_blocklength : button
+---@field type timelinecomponenttype
 ---@field isMoving boolean
 ---@field Texture texture
 ---@field RightIcon texture
@@ -228,6 +246,22 @@ detailsFramework.TimeLine_LineMixin = {
 		--lineData store members: .text .icon .timeline
 		---@type df_timeline_linedata
 		local lineData = data.lines[self.dataIndex]
+		self.lineData = lineData
+
+		local mouseEnabled = not lineData.disabled
+		self.lineHeader:EnableMouse(mouseEnabled)
+		self:EnableMouse(mouseEnabled)
+		self:SetMouseClickEnabled(mouseEnabled)
+		self:SetPropagateMouseClicks(true)
+		self.enabled = mouseEnabled
+
+		if (lineData.lineHeight) then
+			self:SetHeight(lineData.lineHeight)
+			self.lineHeader:SetHeight(lineData.lineHeight)
+		else
+			self:SetHeight(timeline.options.line_height)
+			self.lineHeader:SetHeight(timeline.options.line_height)
+		end
 
 		self.spellId = lineData.spellId
 
@@ -293,6 +327,8 @@ detailsFramework.TimeLine_LineMixin = {
 			block:Show()
 			block:SetFrameLevel(baseFrameLevel)
 
+			block.blockData = blockInfo
+
 			if (inRow) then
 				--when tagged as row, the icon will be attached to the latest block added into the line
 				local lastBlock = self:GetBlock(i-1)
@@ -304,6 +340,8 @@ detailsFramework.TimeLine_LineMixin = {
 				PixelUtil.SetPoint(block, "left", self, "left", xOffset + headerWidth, 0)
 				rowStartBlock = nil
 			end
+
+			auraDuration = auraDuration or 0
 
 			block.info.spellId = blockSpellId or spellId
 			block.info.time = timeInSeconds
@@ -343,10 +381,18 @@ detailsFramework.TimeLine_LineMixin = {
 						thisAuraDuration = timeline.data.length - timeInSeconds
 					end
 
-					local blockLengthColor = blockInfo.blockLengthColor or blockInfo.auraLengthColor
-					if (blockLengthColor) then
-						local r, g, b = detailsFramework:ParseColors(blockLengthColor)
-						block.blockLength.Texture:SetVertexColor(r, g, b, 0.5)
+					local blockLengthTexture = blockInfo.auraLengthTexture
+					if (blockLengthTexture) then
+						block.blockLength.Texture:SetTexture(blockLengthTexture, true)
+						block.blockLength.Texture:SetHorizTile(true)
+					else
+						block.blockLength.Texture:SetColorTexture(1, 1, 1, 1)
+					end
+
+					local auraLengthColor = blockInfo.auraLengthColor
+					if (auraLengthColor) then
+						local r, g, b, a = detailsFramework:ParseColors(auraLengthColor)
+						block.blockLength.Texture:SetVertexColor(r, g, b, a or 0.5)
 					else
 						block.blockLength.Texture:SetVertexColor(1, 1, 1, 0.5)
 					end
@@ -410,12 +456,12 @@ detailsFramework.TimeLine_LineMixin = {
 		block:SetMouseClickEnabled(false)
 		self.blocks[index] = block
 
+		block.type = "block"
+
 		local background = block:CreateTexture(nil, "background")
 		background:SetColorTexture(1, 1, 1, 1)
 		local icon = block:CreateTexture(nil, "artwork")
 		local text = block:CreateFontString(nil, "artwork", "GameFontNormal")
-
-		detailsFramework.TimeLine_LineMixin.CreateBlockLength(block)
 
 		local backgroundBorder = detailsFramework:CreateFullBorder("$parentBorder", block)
 		local iconOffset = UIParent:GetEffectiveScale() * -1
@@ -436,8 +482,11 @@ detailsFramework.TimeLine_LineMixin = {
 		block.background = background
 		block.backgroundBorder = backgroundBorder
 
+		local timeline = self:GetParent():GetParent()
+		block.timeline = timeline
+
 		---@type df_timeline_options
-		local timelineOptions = self:GetParent():GetParent().options
+		local timelineOptions = timeline.options
 
 		block:SetScript("OnEnter", timelineOptions.block_on_enter)
 		block:SetScript("OnLeave", timelineOptions.block_on_leave)
@@ -450,6 +499,8 @@ detailsFramework.TimeLine_LineMixin = {
 			timelineOptions.block_on_create(block)
 		end
 
+		detailsFramework.TimeLine_LineMixin.CreateBlockLength(block)
+
 		return block
 	end,
 
@@ -459,10 +510,13 @@ detailsFramework.TimeLine_LineMixin = {
 		blockLengthFrame:SetFrameLevel(block:GetFrameLevel() - 1)
 		blockLengthFrame:SetScript("OnEnter", detailsFramework.TimeLine_LineMixin.OnEnterBlockLength)
 		blockLengthFrame:SetScript("OnLeave", detailsFramework.TimeLine_LineMixin.OnLeaveBlockLength)
+		blockLengthFrame:SetScript("OnClick", detailsFramework.TimeLine_LineMixin.OnClickBlockLength)
 		--save reference of the block
 		blockLengthFrame.block = block
 		--save reference of the timeline
 		blockLengthFrame.timeline = block:GetParent():GetParent():GetParent()
+
+		blockLengthFrame.type = "length"
 
 		registerForDrag(blockLengthFrame)
 
@@ -478,9 +532,17 @@ detailsFramework.TimeLine_LineMixin = {
 		rightIcon:SetPoint("bottomright", blockLengthFrame, "bottomright", 0, 0)
 		blockLengthFrame.RightIcon = rightIcon
 
-		detailsFramework:CreateHighlightTexture(blockLengthFrame)
+		detailsFramework:CreateHighlightTexture(blockLengthFrame, "highlightTexture")
 
 		block.blockLength = blockLengthFrame
+
+		---@type df_timeline
+		local timeline = block.timeline
+
+		local callbackFunc = timeline.options.block_on_create_auralength or timeline.options.block_on_create_blocklength
+		if (callbackFunc) then
+			callbackFunc(blockLengthFrame)
+		end
 
 		return blockLengthFrame
 	end,
@@ -488,16 +550,27 @@ detailsFramework.TimeLine_LineMixin = {
 	OnEnterBlockLength = function(self)
 		---@type df_timeline
 		local timeline = self.timeline
-		if (timeline.options.block_on_enter_auralength) then
-			timeline.options.block_on_enter_auralength(self)
+		local callbackFunc = timeline.options.block_on_enter_auralength or timeline.options.block_on_enter_blocklength
+		if (callbackFunc) then
+			callbackFunc(self)
 		end
 	end,
 
 	OnLeaveBlockLength = function(self)
 		---@type df_timeline
 		local timeline = self.timeline
-		if (timeline.options.block_on_enter_auralength) then
-			timeline.options.block_on_leave_auralength(self)
+		local callbackFunc = timeline.options.block_on_leave_auralength or timeline.options.block_on_leave_blocklength
+		if (callbackFunc) then
+			callbackFunc(self)
+		end
+	end,
+
+	OnClickBlockLength = function(self, button)
+		---@type df_timeline
+		local timeline = self.timeline
+		local callbackFunc = timeline.options.block_on_click_auralength or timeline.options.block_on_click_blocklength
+		if (callbackFunc) then
+			callbackFunc(self, button)
 		end
 	end,
 
@@ -517,24 +590,31 @@ detailsFramework.TimeLine_LineMixin = {
 ---@field Lines frame[]
 
 ---@class df_timeline_header : scrollframe
+---@field type timelinecomponenttype
 ---@field body frame
 ---@field headerBody df_timeline_header_body
 ---@field verticalSlider slider
 
 ---@class df_timeline_body : frame
+---@field type timelinecomponenttype
 ---@field Buttons button[]
 ---@field originalHeight number
 ---@field effectiveWidth number
 
----@class df_timeline_line : frame, df_timeline_line_mixin
+---@class df_timeline_line : button, df_timeline_line_mixin
+---@field type timelinecomponenttype
+---@field index number
 ---@field spellId number
 ---@field icon df_image
 ---@field text df_label
 ---@field dataIndex number
 ---@field backdrop_color table
 ---@field backdrop_color_highlight table
+---@field enabled boolean
+---@field lineData df_timeline_linedata
 
 ---@class df_timeline : scrollframe, df_timeline_mixin, df_optionsmixin, df_framelayout, df_lineindicator
+---@field type timelinecomponenttype
 ---@field body df_timeline_body
 ---@field onClickCallback fun(...)
 ---@field onClickCallbackFunc fun(...)
@@ -562,22 +642,25 @@ detailsFramework.TimeLine_LineMixin = {
 
 ---@class df_timeline_mixin : table
 ---@field GetLine fun(self:df_timeline, index:number):df_timeline_line
----@field ResetAllLines fun(self:df_timeline)
 ---@field GetAllLines fun(self:df_timeline):df_timeline_line[]
 ---@field GetBlockUnderMouse fun(self:df_timeline):df_timeline_line_block?
----@field GetBlockOrLengthUnderMouse fun(self:df_timeline):df_timeline_line_block?
+---@field GetBlockOrLengthUnderMouse fun(self:df_timeline):df_timeline_line_block|df_timeline_line_blocklength?
+---@field GetLineUnderMouse fun(self:df_timeline):df_timeline_line?
 ---@field GetTimeUnderMouse fun(self:df_timeline):number
 ---@field GetBodyWidthUnderMouse fun(self:df_timeline):number
----@field RefreshTimeLine fun(self:df_timeline, bDoNotRefreshButtons:boolean?)
+---@field GetBlocksAtTime fun(self:df_timeline, time:number?):df_timeline_line_block[]
+---@field GetHorizontalScrolledWidth fun(self:df_timeline):number
+---@field GetEffectivePixelPerSecond fun(self:df_timeline):number
 ---@field SetData fun(self:df_timeline, data:table)
 ---@field GetData fun(self:df_timeline):table
+---@field RefreshTimeLine fun(self:df_timeline, bDelayButtonRefresh:boolean?, bFromScale:boolean?)
 ---@field RefreshResize fun(self:df_timeline)
 ---@field RefreshPerPixelButtons fun(self:df_timeline)
+---@field ResetAllLines fun(self:df_timeline)
 ---@field SetCanResize fun(self:df_timeline, canResize:boolean)
 ---@field OnSizeChanged fun(self:df_timeline)
 ---@field SetOnClickCallback fun(self:df_timeline, callback:fun(), ...:any)
 ---@field UpdateOnClickCallback fun(self:df_timeline, button:button?)
----@field GetHorizontalScrolledWidth fun(self:df_timeline):number
 ---@field HideVerticalScroll fun(self:df_timeline)
 ---@field SetScale fun(self:df_timeline, scale:number)
 
@@ -670,30 +753,44 @@ detailsFramework.TimeLineMixin = {
 		if (not line) then
 			--create a new line
 			---@type df_timeline_line
-			line = CreateFrame("frame", "$parentLine" .. index, self.body, "BackdropTemplate")
+			line = CreateFrame("button", "$parentLine" .. index, self.body, "BackdropTemplate")
 			detailsFramework:Mixin(line, detailsFramework.TimeLine_LineMixin)
 			self.lines[index] = line
+
+			line.type = "line"
+			line.index = index
 
 			local yPosition
 			if (self.options.show_elapsed_timeline) then
 				yPosition = -((index-1) * (self.options.line_height + 1)) - 2 - self.options.elapsed_timeline_height
 			else
+				--need code cleanup as the 'else' stuff isn't in use anymore
 				yPosition = -((index-1) * (self.options.line_height + 1)) - 1
 			end
 
 			local yPadding = -10
 			yPosition = yPosition + yPadding
 
-			line:SetPoint("topleft", self.body, "topleft", 1, yPosition)
+			if (index == 1) then
+				line:SetPoint("topleft", self.body, "topleft", 1, yPosition)
+			else
+				line:SetPoint("topleft", self.lines[index-1], "bottomleft", 0, -1)
+			end
+
 			line:SetSize(1, self.options.line_height) --width is set when updating the frame
 
 			local detachedHeaderFrame = self.headerFrame
 			local lineHeader
 
 			if (detachedHeaderFrame) then
-				lineHeader = CreateFrame("frame", nil, self.headerBody, "BackdropTemplate")
+				lineHeader = CreateFrame("frame", "$parentHeader", self.headerBody, "BackdropTemplate")
+				lineHeader.type = "header"
 				lineHeader:SetSize(detachedHeaderFrame:GetWidth(), self.options.line_height)
-				lineHeader:SetPoint("topleft", self.headerBody, "topleft", 0, yPosition)
+				if (index == 1) then
+					lineHeader:SetPoint("topleft", self.headerBody, "topleft", 0, yPosition)
+				else
+					lineHeader:SetPoint("topleft", self.lines[index-1].lineHeader, "bottomleft", 0, -1)
+				end
 				detailsFramework:CreateHighlightTexture(lineHeader, "HighlightTexture")
 				lineHeader.HighlightTexture:SetDrawLayer("overlay", 1)
 				lineHeader.HighlightTexture:Hide()
@@ -705,7 +802,8 @@ detailsFramework.TimeLineMixin = {
 
 				lineHeader.Line = line
 			else
-				lineHeader = CreateFrame("frame", nil, line, "BackdropTemplate")
+				lineHeader = CreateFrame("frame", "$parentHeader", line, "BackdropTemplate")
+				lineHeader.type = "header"
 				lineHeader:SetPoint("topleft", line, "topleft", 0, 0)
 				lineHeader:SetPoint("bottomleft", line, "bottomleft", 0, 0)
 				line:SetScript("OnEnter", self.options.on_enter)
@@ -735,6 +833,10 @@ detailsFramework.TimeLineMixin = {
 
 			line.backdrop_color = self.options.backdrop_color or {.1, .1, .1, .3}
 			line.backdrop_color_highlight = self.options.backdrop_color_highlight or {.3, .3, .3, .5}
+
+			if (self.options.on_create_line) then
+				self.options.on_create_line(line)
+			end
 		end
 
 		return line
@@ -824,10 +926,23 @@ detailsFramework.TimeLineMixin = {
 					local blockLength = thisBlock.blockLength
 					if (blockLength and blockLength:IsShown()) then
 						if (blockLength:IsMouseOver()) then
-							return thisBlock
+							return blockLength
 						end
 					end
 				end
+			end
+		end
+
+		return nil
+	end,
+
+	GetLineUnderMouse = function(self)
+		local allLines = self:GetAllLines()
+
+		for i = 1, #allLines do
+			local thisLine = allLines[i]
+			if (thisLine:IsMouseOver()) then
+				return thisLine
 			end
 		end
 
@@ -851,12 +966,52 @@ detailsFramework.TimeLineMixin = {
 		return time
 	end,
 
+	GetBlocksAtTime = function(self, time)
+		if (not time) then
+			time = self:GetTimeUnderMouse()
+		end
+
+		local blocks = {}
+		local allLines = self:GetAllLines()
+
+		local pixelsPerSecond = self:GetEffectivePixelPerSecond()
+
+		for i = 1, #allLines do
+			local thisLine = allLines[i]
+			local allBlocksInTheLine = thisLine:GetAllBlocks()
+			for j = 1, #allBlocksInTheLine do
+				local thisBlock = allBlocksInTheLine[j]
+				if (thisBlock:IsShown()) then
+					local blockWidth = thisBlock:GetWidth()
+					---@type df_timeline_line_blockinfo
+					local blockInfo = thisBlock.info
+					local blockTime = blockInfo.time
+
+					local startTime = blockTime
+					local endTime = blockTime + (blockWidth / pixelsPerSecond)
+
+					--blockTime = math.floor(blockTime)
+					--time = math.floor(time)
+					if (time >= startTime and time <= endTime) then
+						table.insert(blocks, thisBlock)
+					end
+				end
+			end
+		end
+
+		return blocks
+	end,
+
 	--todo
 	--make the on enter and leave tooltips
 	--set icons and texts
 	--skin the sliders
 
-	RefreshTimeLine = function(self, bDelayButtonRefresh) --~refresh
+	GetEffectivePixelPerSecond = function(self)
+		return self.pixelPerSecond * self.currentScale
+	end,
+
+	RefreshTimeLine = function(self, bDelayButtonRefresh, bFromScale) --~refresh
 		if (not self.data.lines) then
 			return
 		end
@@ -872,43 +1027,13 @@ detailsFramework.TimeLineMixin = {
 
 		local timelineWidth = self:GetWidth()
 
-		--original code
-		--[=[
-			--how many pixels represent 1 second
-			local bodyWidth = totalLength * pixelPerSecond * currentScale
-			self.body:SetWidth(bodyWidth + self.options.header_width)
-			self.body.effectiveWidth = bodyWidth
-
-			--reduce the default canvas size from the body with and don't allow the max value be negative
-			local newMaxValue = max(bodyWidth - (self:GetWidth() - self.options.header_width), 0)
-
-			--adjust the scale slider range
-			local oldMin, oldMax = self.horizontalSlider:GetMinMaxValues()
-			self.horizontalSlider:SetMinMaxValues(0, newMaxValue)
-			self.horizontalSlider:SetValue(detailsFramework:MapRangeClamped(oldMin, oldMax, 0, newMaxValue, self.horizontalSlider:GetValue()))
-		]=]
-
 		--calculate the width that the body width should be
 		local bodyWidth = totalLength * pixelPerSecond * currentScale
-		--get the biggest value between the calculated body width and (timeline width minus header width) in case the desired body width is smaller than the timeline width
-		--local bodyFrameWidth = max(bodyWidth + effectiveHeaderWidth, timelineWidth - effectiveHeaderWidth)
-		--self.body:SetWidth(bodyFrameWidth)
 		self.body:SetWidth(bodyWidth + effectiveHeaderWidth)
-
-		--[=[
-		print("effectiveHeaderWidth", effectiveHeaderWidth)
-		if (bodyWidth + effectiveHeaderWidth > timelineWidth - effectiveHeaderWidth) then
-			print(1)
-		else
-			print(2) --this is fucking with the elapsed time bar | need to see further in the script that's happening
-		end
-		--]=]
 
 		--reduce the default timeline size from the body width and don't allow the max value be negative
 		local diff = bodyWidth - timelineWidth
 		local newMaxValue = max(diff + effectiveHeaderWidth, 0)
-
-		--print(desiredBodyWidth + effectiveHeaderWidth, timelineWidth - effectiveHeaderWidth) --1020, 750
 
 		self.body.effectiveWidth = bodyWidth
 
@@ -920,9 +1045,12 @@ detailsFramework.TimeLineMixin = {
 		--adjust the scale slider range
 		--new max value is zero when all content is shown in the timeline (no scroll needed)
 		local oldMin, oldMax = self.horizontalSlider:GetMinMaxValues()
-		local timeUnderMouse = self:GetTimeUnderMouse()
-		local timeUnderMouseInPixels = (timeUnderMouse * pixelPerSecond * self.currentScale)
-		local newValue = timeUnderMouseInPixels
+		local newHorizontalSliderValue = self.horizontalSlider:GetValue()
+		if (bFromScale) then
+			local timeUnderMouse = self:GetTimeUnderMouse()
+			local timeUnderMouseInPixels = (timeUnderMouse * pixelPerSecond * self.currentScale)
+			newHorizontalSliderValue = timeUnderMouseInPixels
+		end
 
 		if (newMaxValue == 0) then
 			--no scroll is needed
@@ -931,7 +1059,7 @@ detailsFramework.TimeLineMixin = {
 
 		elseif (oldMax ~= newMaxValue) then
 			self.horizontalSlider:SetMinMaxValues(0, newMaxValue)
-			self.horizontalSlider:SetValue(newValue)
+			self.horizontalSlider:SetValue(newHorizontalSliderValue) --it is setting for zoom even when if the refresh is not from zoom
 		end
 
 		self.oldMinWidth = 0
@@ -981,8 +1109,11 @@ detailsFramework.TimeLineMixin = {
 			line.dataIndex = i --this index is used inside the line update function to know which data to get
 			line.lineHeader:SetWidth(self.options.header_width)
 			line:SetBlocksFromData() --the function to update runs within the line object
-			--line:SetHeight(30)
 			line.lineHeader:Show()
+
+			if (self.options.on_refresh_line) then
+				self.options.on_refresh_line(line)
+			end
 		end
 
 		--refresh elapsed time frame
@@ -1052,6 +1183,7 @@ local onScaleChange_RefreshTimer = nil
 
 ---@class df_timeline_body : frame, df_lineindicator
 
+
 ---creates a scrollable panel with vertical, horizontal and scale sliders to show a timeline
 ---also creates a frame for the elapsed timeline at the top, it shows the time in seconds
 ---@param parent frame
@@ -1067,6 +1199,8 @@ function detailsFramework:CreateTimeLineFrame(parent, name, timelineOptions, ela
 
 	---@type df_timeline
 	local frameCanvas = CreateFrame("scrollframe", name, parent, "BackdropTemplate")
+
+	frameCanvas.type = "timeline"
 
 	detailsFramework:Mixin(frameCanvas, detailsFramework.TimeLineMixin)
 	detailsFramework:Mixin(frameCanvas, detailsFramework.OptionsFunctions)
@@ -1090,6 +1224,8 @@ function detailsFramework:CreateTimeLineFrame(parent, name, timelineOptions, ela
 	local frameBody = CreateFrame("frame", nil, frameCanvas, "BackdropTemplate")
 	frameBody:SetSize(scrollWidth, scrollHeight)
 	frameCanvas:LineIndicatorSetTarget(frameBody)
+
+	frameBody.type = "body"
 
 	frameBody.Buttons = {}
 
@@ -1162,7 +1298,8 @@ function detailsFramework:CreateTimeLineFrame(parent, name, timelineOptions, ela
 				frameCanvas.oldScale = frameCanvas.currentScale
 				frameCanvas.currentScale = stepValue
 				local bDelayButtonRefresh = true
-				frameCanvas:RefreshTimeLine(bDelayButtonRefresh)
+				local bFromScale = true
+				frameCanvas:RefreshTimeLine(bDelayButtonRefresh, bFromScale)
 			end
 		end)
 
