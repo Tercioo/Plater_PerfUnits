@@ -1,7 +1,7 @@
 ## Interface: 110007
 ## Interface-Mainline: 110007
 ## Interface-Cata: 40401
-## Interface-Vanilla: 11505
+## Interface-Vanilla: 11506
 ## RequiredDeps: Plater
 ## Title: Plater Performance Units (plugin)
 ## Notes: Add a tag to configure performance units.
