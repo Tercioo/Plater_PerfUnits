@@ -1,5 +1,4 @@
-## Interface: 110200, 110205
-## Interface-Mainline: 110105
+## Interface-Mainline: 110105, 120000
 ## Interface-Cata: 40402
 ## Interface-Mists: 50501
 ## Interface-Vanilla: 11507
