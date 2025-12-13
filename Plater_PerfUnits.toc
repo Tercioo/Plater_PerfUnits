@@ -1,7 +1,7 @@
 ## Interface-Mainline: 110105, 120000
 ## Interface-Cata: 40402
-## Interface-Mists: 50501
-## Interface-Vanilla: 11507
+## Interface-Mists: 50503
+## Interface-Vanilla: 11508
 ## RequiredDeps: Plater
 ## Title: Plater Performance Units (plugin)
 ## Notes: Add a tag to configure performance units.
