@@ -2,3 +2,5 @@
 *.afphoto
 Plater_PerfUnits_dev.toc
 *.afphoto~lock~
+libs/DF/_lua_fns.txt
+libs/DF/anchorsystem - backup.lua
